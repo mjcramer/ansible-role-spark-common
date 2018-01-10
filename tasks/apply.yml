@@ -1,0 +1,67 @@
+# roles/spark-common/tasks/apply.yml
+---
+- name: apply | add group
+  group:
+    name: "{{ spark_group }}"
+    system: true
+    state: present
+
+- name: apply | add user
+  user: 
+    name: "{{ spark_user}}"
+    group: "{{ spark_group }}"
+    system: true
+    createhome: no
+    home: "{{ spark.home_dir }}"
+    state: present
+
+- name: apply | create folders
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ spark_user }}" 
+    group: "{{ spark_group }}"
+    mode: 0775
+  with_items:
+    - "{{ spark.conf_dir }}"
+    - "{{ spark.log_dir }}"
+    - "{{ spark.lib_dir }}"
+
+- name: apply | create data folders
+  file:
+    path: "{{ item.name }}/spark"
+    state: directory
+    owner: "{{ spark_user }}"
+    group: "{{ spark_group }}"
+  with_items: "{{ data_devices | default(omit) }}"
+  when: "data_devices is defined and data_devices"
+
+- debug:
+    msg: "{{ lookup('env','SPARK_DOWNLOAD_PATH') }}"
+
+- name: apply | download archive
+  get_url:
+    url: "{{ spark.remote_archive }}" 
+    dest: "{{ spark.local_archive }}"
+    checksum: "{{ spark.download_checksum }}"
+    mode: 0644 
+    force: no
+  when: spark.remote_archive | match("^http.*$")
+  tags:
+    - download
+
+- name: apply | copy from local
+  copy:
+    src: "{{ spark.remote_archive }}"
+    dest: "{{ spark.local_archive }}"
+  when: spark.remote_archive | match("^(?!http).*$")
+
+- name: apply | unpack archive
+  unarchive: 
+    src: "{{ spark.local_archive }}"
+    dest: "{{ base_home_dir }}"
+    owner: "{{ spark_user }}"
+    group: "{{ spark_group}}"
+    copy: no
+    creates: "{{ spark.home_dir }}"
+

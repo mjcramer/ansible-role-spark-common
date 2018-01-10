@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+
+export SPARK_CONF_DIR={{ spark.conf_dir }}
+
+{{ spark.home_dir }}/bin/spark-shell \
+{% if hosts is defined %}
+    --master mesos://zk://
+    {%- for host in hosts %}
+        {% if hostvars[host]['cluster_interface'] is defined %}
+            {% set key = 'ansible_' + hostvars[host]['cluster_interface'] %}
+            {% set host_ipv4 = hostvars[host][key]['ipv4'] %}
+        {% else %}
+            {% set host_ipv4 = hostvars[host]['ansible_default_ipv4'] %}
+        {% endif %}
+        {{ host_ipv4['address'] | default(host) }}:{{ zookeeper_port }}
+        {%- if not loop.last -%}
+            ,
+        {%- endif -%}
+    {%- endfor %} \
+{% else %}
+    --master spark://{{ spark_master_hosts | map('regex_replace', '(.*)', '\\1:%d' % spark_master_port) | join(',') }} \
+{% endif %}
+    --packages datastax:spark-cassandra-connector:1.6.0-s_{{ scala_version }} \
+    --jars "mysql-connector-java-5.1.38-bin.jar,rhodesian-0.0.1-jar-with-dependencies.jar,spark-etl-0.0.1-jar-with-dependencies.jar"
+    --driver-memory {{ spark_driver_memory | default("512m") }} \
+    --executor-memory {{ spark_executor_memory | default("512m") }} \
+    --executor-cores {{ spark_executor_cores | default(1) }} \
+    --conf spark.cassandra.connection.host=172.16.10.8 \
+    --conf spark.akka.frameSize=1024 \
+    --conf spark.driver.maxResultSize=5g \
+    --conf spark.cores.max=72 \
+    --conf spark.cassandra.connection.host=172.16.10.8 \
+    $@

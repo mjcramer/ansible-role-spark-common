@@ -1,0 +1,14 @@
+# roles/spark-common/vars/main.yml
+---
+# Global spark deployment variables - DO NOT EDIT!
+spark:
+  local_archive: "{{ download_dir }}/{{ spark_archive }}"
+  remote_archive: "{{ lookup('env','SPARK_DOWNLOAD_PATH') | default(spark_download_path, true) }}/{{ spark_archive }}"
+  download_checksum: "{{ spark_download_checksum }}"
+  home_dir: "{{ base_home_dir }}/{{ spark_name }}-bin{% if spark_scala_version is defined %}-{{ spark_scala_version }}{% endif %}{% if spark_hadoop_version is defined %}-{{ spark_hadoop_version }}{% endif %}"
+  conf_dir: "{{ base_conf_dir }}/spark"
+  log_dir: "{{ base_log_dir }}/spark"
+  lib_dir: "{{ base_lib_dir }}/spark"
+  run_dir: "{{ base_run_dir }}/spark"
+
+

@@ -1,0 +1,108 @@
+# Spark runtime configuration
+
+# Java version for spark
+{% if java_home is defined %}
+JAVA_HOME={{ java_home }}
+{% else %}
+# JAVA_HOME=/usr/java/default
+{% endif %}
+
+# ======================================================================================================================
+#   Spark Configuration
+# ======================================================================================================================
+SPARK_HOME={{ spark.home_dir }}
+SPARK_CONF_DIR={{ spark.conf_dir }}
+SPARK_LOG_DIR={{ spark.log_dir }}
+SPARK_PID_DIR={{ spark.run_dir }}
+# SPARK_NICENESS  The scheduling priority for daemons. (Default: 0)
+
+{% if 'storage_master' in group_names or 'storage_slave' in group_names -%}
+HADOOP_HOME={{ hadoop.home_dir }}
+HADOOP_CONF_DIR={{ hadoop.conf_dir }}
+{% endif %}
+
+SPARK_LOCAL_DIRS=
+{%- if data_devices is defined -%}
+{{ data_devices | map(attribute='name') | map('regex_replace', '(.*)', '\\1/spark') | join(',') }}
+{%- else -%}
+{{ spark.lib_dir }}
+{%- endif %}
+
+{% if hostvars[inventory_hostname]['cluster_interface'] is defined -%}
+    {%- set key = 'ansible_' + hostvars[inventory_hostname]['cluster_interface'] -%}
+    {%- set host_ipv4 = hostvars[inventory_hostname][key]['ipv4'] -%}
+{%- else -%}
+    {%- set host_ipv4 = hostvars[inventory_hostname]['ansible_default_ipv4'] -%}
+{%- endif -%}
+# Do not set this until https://issues.apache.org/jira/browse/SPARK-12963 is resolved.
+SPARK_LOCAL_IP={{ host_ipv4['address'] }}
+SPARK_PUBLIC_DNS={{ host_ipv4['address'] }}
+
+SPARK_DAEMON_MEMORY={{ spark_daemon_memory | default("512m") }}
+
+{# SPARK_EXECUTOR_INSTANCES, Number of executors to start (Default: 2) #}
+{# SPARK_EXECUTOR_CORES, Number of cores for the executors (Default: 1). #}
+{# SPARK_EXECUTOR_MEMORY, Memory per Executor (e.g. 1000M, 2G) (Default: 1G) #}
+{# SPARK_DRIVER_MEMORY, Memory for Driver (e.g. 1000M, 2G) (Default: 1G) #}
+{# SPARK_HISTORY_OPTS, to set config properties only for the history server (e.g. "-Dx=y") #}
+{# SPARK_SHUFFLE_OPTS, to set config properties only for the external shuffle service (e.g. "-Dx=y") #}
+{# SPARK_DAEMON_JAVA_OPTS, to set config properties for all daemons (e.g. "-Dx=y") #}
+
+MESOS_NATIVE_JAVA_LIBRARY, to point to your libmesos.so if you use Mesos
+
+{% if high_availability is defined and high_availability -%}
+{% if zookeeper_hosts is defined -%}
+# Cluster ensemble from 'zookeeper_hosts'...
+{% set hosts = zookeeper_hosts -%}
+{% elif groups['zookeeper_hosts'] is defined %}
+# Cluster ensemble from group 'zookeeper_hosts'...
+{% set hosts = groups['zookeeper_hosts'] -%}
+{% elif zookeeper_hostgroup is defined and groups[zookeeper_hostgroup] is defined %}
+# Cluster ensemble from group '{{ zookeeper_hostgroup }}'...
+{% set hosts = groups[zookeeper_hostgroup] -%}
+{% endif -%}
+SPARK_DAEMON_JAVA_OPTS="-Dspark.deploy.recoveryMode=ZOOKEEPER -Dspark.deploy.zookeeper.dir=/spark -Dspark.deploy.zookeeper.url=
+{%- if hosts is defined -%}
+{%- for host in hosts -%}
+{%- if hostvars[host]['cluster_interface'] is defined -%}
+{%- set key = 'ansible_' + hostvars[host]['cluster_interface'] -%}
+{%- set host_ipv4 = hostvars[host][key]['ipv4'] -%}
+{%- else -%}
+{%- set host_ipv4 = hostvars[host]['ansible_default_ipv4'] -%}
+{%- endif -%}
+{{ host_ipv4['address'] | default(host) }}:{{ zookeeper_config_port }}
+{%- if not loop.last -%}
+,
+{%- endif -%}
+{%- endfor -%}
+{%- else -%}
+localhost:{{ zookeeper_config_port }}
+{%- endif -%}
+"
+{% endif %} {# high_availability is defined and high_availability #}
+
+# ======================================================================================================================
+#   Spark Master Configuration
+# ======================================================================================================================
+# SPARK_MASTER_IP={{ spark_master_hosts[0] }}
+SPARK_MASTER_PORT={{ spark_master_port | default(7077) }}
+SPARK_MASTER_WEBUI_PORT={{ spark_master_webui_port | default(8088) }}
+SPARK_MASTER_OPTS="-Dspark.master.rest.port={{ spark_master_rest_port | default(6066) }}"
+
+# ======================================================================================================================
+#   Spark Worker Configuration
+# ======================================================================================================================
+SPARK_WORKER_WEBUI_PORT={{ spark_worker_webui_port | default(8089) }}
+SPARK_WORKER_PORT={{ spark_worker_port | default(5055) }}
+SPARK_WORKER_CORES={{ spark_worker_cores | default(ansible_processor_cores) }}
+SPARK_WORKER_MEMORY={{ spark_worker_memory_mb | default(ansible_memtotal_mb) }}m
+SPARK_WORKER_DIR=
+{%- if data_devices is defined -%}
+    {{ data_devices | map(attribute='name') | map('regex_replace', '(.*)', '\\1/spark') | first }}
+{%- else -%}
+    {{ spark.lib_dir }}
+{%- endif %}
+SPARK_WORKER_OPTS="-Dspark.worker.cleanup.enabled=true"
+SPARK_WORKER_OPTS="$SPARK_WORKER_OPTS -Dspark.worker.cleanup.interval={{ spark_worker_config_cleanup_interval }}"
+SPARK_WORKER_OPTS="$SPARK_WORKER_OPTS -Dspark.worker.cleanup.appDataTtl={{ spark_worker_config_cleanup_appdatattl }}"
+

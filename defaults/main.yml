@@ -1,0 +1,28 @@
+# roles/spark-common/defaults/main.yml
+---
+# Server deployment parameters - these control how spark is deployed
+spark_version: 1.6.1
+spark_scala_version: scala2.11
+spark_hadoop_version: hadoop2.6
+# spark_hadoop_version: without-hadoop
+spark_name: "spark-{{ spark_version }}"
+spark_archive: "{{ spark_name }}-bin{% if spark_scala_version is defined %}-{{ spark_scala_version }}{% endif %}{% if spark_hadoop_version is defined %}-{{ spark_hadoop_version }}{% endif %}.tgz"
+spark_download_path: "{{ apache_mirror }}/spark/{{ spark_name }}"
+spark_download_checksum: "sha512:49154D13D5B216C71556F8F5939B13F4A2A29623D02C49DC1B2F21228352F65DEFE831F9CFAF633BA7A0BD53833522BA51EB778654C8E49434439AFB5265246F"
+spark_user: spark
+spark_group: analytics
+spark_nofile: 65535
+
+# Server environment configuration - this controls how spark server is run
+spark_jvm_heap_init: 256m
+spark_jvm_heap_max: 512m
+
+# Controls base log level for all spark applications
+spark_log_level: INFO
+
+# How long to leave the application log directories laying around
+spark_worker_config_cleanup_interval: 3600
+spark_worker_config_cleanup_appdatattl: 86400
+
+zookeeper_config_port: 2181
+

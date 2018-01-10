@@ -1,0 +1,5 @@
+# roles/spark-common/meta/main.yml
+---
+dependencies:
+  - role: java
+  - role: hdfs-common

@@ -1,0 +1,51 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Default system properties included when running spark-submit.
+# This is useful for setting default environmental settings.
+
+spark.master                     spark://{{ spark_master_hosts | map('regex_replace', '(.*)', '\\1:%d' % spark_master_port) | join(',') }}
+spark.eventLog.enabled           true
+{% if high_availability is not defined or not high_availability %}
+spark.eventLog.dir               hdfs://{{ hdfs_host }}:{{ hdfs_port }}
+{%- else -%}
+spark.eventLog.dir               hdfs://{{ cluster_name }}
+{%- endif -%}/spark/event
+spark.files                      file:///etc/hadoop/hdfs-site.xml,file:///etc/hadoop/core-site.xml
+{# THIS SUCKS! I hate hard-coding the hadoop dir #}
+spark.shuffle.blockTransferService nio
+{#{% if cassandra_hosts is defined -%}#}
+{## Cluster points from 'cassandra_hosts'...#}
+{#    {% set hosts = cassandra_hosts -%}#}
+{#{% elif cassandra_hostgroup is defined and groups[cassandra_hostgroup] is defined %}#}
+{## Cluster ensemble from group '{{ cassandra_hostgroup }}'...#}
+{#    {% set hosts = groups[cassandra_hostgroup] -%}#}
+{#{% endif -%}#}
+{#{% if hosts is defined %}#}
+{#spark.cassandra.connection.host#}
+{#{%- for host in hosts %}#}
+{#{%- if hostvars[host]['cluster_interface'] is defined %}#}
+{#    {%- set key = 'ansible_' + hostvars[host]['cluster_interface'] %}#}
+{#    {%- set host_ipv4 = hostvars[host][key]['ipv4'] %}#}
+{#{% else -%}#}
+{#    {%- set host_ipv4 = hostvars[host]['ansible_default_ipv4'] %}#}
+{#{% endif -%}#}
+{# {{ host_ipv4['address'] }}#}
+{#{% endif %}#}
+spark.cassandra.connection.host 172.16.10.8,172.16.10.208,172.16.10.101,172.16.10.63
+# spark.cassandra.connection.port {{ cassandra_port }}
+spark.cassandra.connection.local_dc us-east-analytics

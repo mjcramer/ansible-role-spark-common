@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+export SPARK_CONF_DIR={{ spark.conf_dir }}
+
+{{ spark.home_dir }}/bin/spark-submit \
+    --class org.apache.spark.examples.SparkPi \
+{#{% if zookeeper_hosts is defined -%}#}
+{#    {% set hosts = zookeeper_hosts -%}#}
+{#{% elif zookeeper_hostgroup is defined and groups[zookeeper_hostgroup] is defined %}#}
+{#    {% set hosts = groups[zookeeper_hostgroup] -%}#}
+{#{% endif -%}#}
+{% if hosts is defined %}
+    --master mesos://zk://
+    {%- for host in hosts %}
+        {% if hostvars[host]['cluster_interface'] is defined %}
+            {% set key = 'ansible_' + hostvars[host]['cluster_interface'] %}
+            {% set host_ipv4 = hostvars[host][key]['ipv4'] %}
+        {% else %}
+            {% set host_ipv4 = hostvars[host]['ansible_default_ipv4'] %}
+        {% endif %}
+        {{ host_ipv4['address'] | default(host) }}:{{ zookeeper_port }}
+        {%- if not loop.last -%}
+            ,
+        {%- endif -%}
+    {%- endfor %} \
+{% else %}
+    --master spark://{{ spark_master_hosts | map('regex_replace', '(.*)', '\\1:%d' % spark_master_port) | join(',') }} \
+{% endif %}
+    --deploy-mode cluster \
+    --num-executors {{ spark_num_executors | default(1) }} \
+    --executor-cores {{ spark_executor_cores | default(1) }} \
+    --driver-memory {{ spark_driver_memory | default("512m") }} \
+    --executor-memory {{ spark_executor_memory | default("512m") }} \=
+    {{ spark.home_dir }}/lib/spark-examples-{{ spark_version }}-{{ spark_hadoop_version }}.0.jar $@

@@ -1,0 +1,41 @@
+# roles/spark-common/tasks/configure.yml
+---
+- name: configure | set ulimits
+  template:
+    src: limits.conf.j2
+    dest: /etc/security/limits.d/90-spark.conf
+    mode: 600
+
+- name: configure | create environment configuration
+  template:
+    src: "{{ item }}.j2"
+    dest: "{{ spark.conf_dir }}/{{ item }}"
+  with_items:
+    - spark-env.sh
+    - spark-defaults.conf
+    - log4j.properties
+    - docker.properties
+
+  notify:
+    - restart spark master
+    - restart spark worker
+
+- name: configure | create spark shell script
+  template:
+    src: spark-shell.sh.j2
+    dest: "{{ base_script_dir }}/spark-shell.sh"
+    mode: 0755
+
+
+- name: configure | create spark submit script
+  template:
+    src: spark-submit.sh.j2
+    dest: "{{ base_script_dir }}/spark-submit.sh"
+    mode: 0755
+
+- name: configure | create spark pi script
+  template:
+    src: spark-pi.sh.j2
+    dest: "{{ base_script_dir }}/spark-pi.sh"
+    mode: 0755
+
